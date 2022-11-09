@@ -19,28 +19,30 @@ type Papago struct {
 	clientSecret string
 }
 
-// Translate Translate
-// please refer https://developers.naver.com/docs/papago/papago-nmt-api-reference.md
-func (p *Papago) Translate(ctx context.Context, source, target string, text string) (string, error) {
-	resp, err := request.Post("https://openapi.naver.com/v1/papago/n2mt").
-		Headers(map[string]string{
-			"X-Naver-Client-Id":     p.clientID,
-			"X-Naver-Client-Secret": p.clientSecret,
-		}).
-		Forms(map[string]string{
-			"source": source,
-			"target": target,
-			"text":   text,
-		}).
-		Do(ctx)
+func (p *Papago) sendRequest(ctx context.Context, req *request.Request, r interface{}) error {
+	resp, err := req.Headers(map[string]string{
+		"X-Naver-Client-Id":     p.clientID,
+		"X-Naver-Client-Secret": p.clientSecret,
+	}).Do(ctx)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	if !resp.Success() {
-		return "", fmt.Errorf("error with %d", resp.StatusCode)
+		return fmt.Errorf("failed with %d", resp.StatusCode)
 	}
 
+	defer resp.Body.Close()
+	if err := resp.JSON(r); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Translate Translate
+// please refer https://developers.naver.com/docs/papago/papago-nmt-api-reference.md
+func (p *Papago) Translate(ctx context.Context, source, target string, text string) (string, error) {
 	var r struct {
 		Message struct {
 			Type    string `json:"@type"`
@@ -53,8 +55,12 @@ func (p *Papago) Translate(ctx context.Context, source, target string, text stri
 			} `json:"result"`
 		} `json:"message"`
 	}
-	defer resp.Body.Close()
-	if err := resp.JSON(&r); err != nil {
+
+	if err := p.sendRequest(ctx, request.Post("https://openapi.naver.com/v1/papago/n2mt").Forms(map[string]string{
+		"source": source,
+		"target": target,
+		"text":   text,
+	}), &r); err != nil {
 		return "", err
 	}
 
@@ -64,26 +70,11 @@ func (p *Papago) Translate(ctx context.Context, source, target string, text stri
 // DetectLangs Detect Languages
 // https://developers.naver.com/docs/papago/papago-detectlangs-api-reference.md
 func (p *Papago) DetectLangs(ctx context.Context, text string) (string, error) {
-	resp, err := request.Post("https://openapi.naver.com/v1/papago/detectLangs").
-		Headers(map[string]string{
-			"X-Naver-Client-Id":     p.clientID,
-			"X-Naver-Client-Secret": p.clientSecret,
-		}).
-		Form("query", text).
-		Do(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	if !resp.Success() {
-		return "", fmt.Errorf("error with %d", resp.StatusCode)
-	}
-
 	var r struct {
 		LanCode string `json:"langCode"`
 	}
-	defer resp.Body.Close()
-	if err := resp.JSON(&r); err != nil {
+
+	if err := p.sendRequest(ctx, request.Post("https://openapi.naver.com/v1/papago/detectLangs").Form("query", text), &r); err != nil {
 		return "", err
 	}
 
@@ -103,30 +94,13 @@ type RomanizationResultItem struct {
 // Romanization 한글인명 로마자 변환
 // https://developers.naver.com/docs/papago/papago-romanization-api-reference.md
 func (p *Papago) Romanization(ctx context.Context, text string) ([]RomanizationResult, error) {
-	resp, err := request.Get("https://openapi.naver.com/v1/krdict/romanization").
-		Headers(map[string]string{
-			"X-Naver-Client-Id":     p.clientID,
-			"X-Naver-Client-Secret": p.clientSecret,
-		}).
-		Query("query", text).
-		Do(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if !resp.Success() {
-		return nil, fmt.Errorf("error with status %d", resp.StatusCode)
-	}
-
 	var r struct {
 		Result []RomanizationResult `json:"aResult"`
 	}
-	defer resp.Body.Close()
-	if err := resp.JSON(&r); err != nil {
+
+	if err := p.sendRequest(ctx, request.Get("https://openapi.naver.com/v1/krdict/romanization").Query("query", text), &r); err != nil {
 		return nil, err
 	}
-
-	fmt.Printf("%v\n", r)
 
 	return r.Result, nil
 }
