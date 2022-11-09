@@ -71,14 +71,14 @@ func (p *Papago) Translate(ctx context.Context, source, target string, text stri
 // https://developers.naver.com/docs/papago/papago-detectlangs-api-reference.md
 func (p *Papago) DetectLangs(ctx context.Context, text string) (string, error) {
 	var r struct {
-		LanCode string `json:"langCode"`
+		LangCode string `json:"langCode"`
 	}
 
 	if err := p.sendRequest(ctx, request.Post("https://openapi.naver.com/v1/papago/detectLangs").Form("query", text), &r); err != nil {
 		return "", err
 	}
 
-	return r.LanCode, nil
+	return r.LangCode, nil
 }
 
 type RomanizationResult struct {
