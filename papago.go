@@ -2,7 +2,6 @@ package papago
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/whitekid/goxp/request"
 )
@@ -28,8 +27,8 @@ func (p *Papago) sendRequest(ctx context.Context, req *request.Request, r interf
 		return err
 	}
 
-	if !resp.Success() {
-		return fmt.Errorf("failed with %d", resp.StatusCode)
+	if err := resp.Success(); err != nil {
+		return err
 	}
 
 	defer resp.Body.Close()
